@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signedIn() { return request.auth != null; }
+  function club(cid) { return get(/databases/$(database)/documents/clubs/$(cid)); }
+  function member(cid) { return signedIn() && request.auth.uid in club(cid).data.memberIds; }
+  function owner(cid) { return signedIn() && club(cid).data.ownerId == request.auth.uid; }
+  function validItem(d) {
+   return d.keys().hasAll(['type','createdBy']) &&
+    d.type in ['book','post','proposal','vote','meeting','progress'] &&
+    d.createdBy == request.auth.uid &&
+    (d.type != 'vote' || (d.keys().hasAll(['proposalId']) && d.proposalId is string)) &&
+    (d.type != 'progress' || (d.keys().hasAll(['bookId','value']) && d.bookId is string && d.value is number && d.value >= 0 && d.value <= 100));
+  }
+  match /clubs/{cid} {
+   allow create: if signedIn() && request.resource.data.keys().hasOnly(['name','description','ownerId','memberIds','createdAt']) && request.resource.data.ownerId == request.auth.uid && request.resource.data.memberIds == [request.auth.uid] && request.resource.data.name is string && request.resource.data.name.size() > 0;
+   allow get, list: if signedIn() && request.auth.uid in resource.data.memberIds;
+   allow update: if signedIn() && resource.data.ownerId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']) && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.memberIds is list && request.resource.data.memberIds.size() <= 100 && request.resource.data.memberIds.hasAll(resource.data.memberIds) && request.resource.data.memberIds.size() <= resource.data.memberIds.size()+1 && (request.resource.data.memberIds.size() == resource.data.memberIds.size() || (request.resource.data.memberIds.size() == resource.data.memberIds.size()+1 && exists(/databases/$(database)/documents/clubs/$(cid)/joinRequests/$(request.resource.data.memberIds[request.resource.data.memberIds.size()-1]))));
+   allow delete: if false;
+   match /joinRequests/{uid} {
+    allow create: if signedIn() && request.auth.uid == uid && request.resource.data.keys().hasOnly(['uid','email','createdAt']) && request.resource.data.uid == uid && request.resource.data.email == request.auth.token.email && exists(/databases/$(database)/documents/clubs/$(cid));
+    allow get: if signedIn() && (request.auth.uid == uid || owner(cid));
+    allow list: if owner(cid);
+    allow delete: if owner(cid);
+    allow update: if false;
+   }
+   match /privateNotes/{uid}/entries/{noteId} {
+    allow read, create, update, delete: if member(cid) && request.auth.uid == uid;
+   }
+   match /items/{iid} {
+    allow read: if member(cid);
+    allow create: if member(cid) && validItem(request.resource.data) &&
+     (request.resource.data.type != 'vote' || (iid == 'vote_' + request.auth.uid && exists(/databases/$(database)/documents/clubs/$(cid)/items/$(request.resource.data.proposalId)))) &&
+     (request.resource.data.type != 'progress' || iid == 'progress_' + request.auth.uid + '_' + request.resource.data.bookId);
+    allow update: if member(cid) && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.type == resource.data.type && (resource.data.createdBy == request.auth.uid || (owner(cid) && resource.data.type == 'book')) &&
+     (resource.data.type != 'vote' || (iid == 'vote_' + request.auth.uid && exists(/databases/$(database)/documents/clubs/$(cid)/items/$(request.resource.data.proposalId)))) &&
+     (resource.data.type != 'progress' || (iid == 'progress_' + request.auth.uid + '_' + request.resource.data.bookId && request.resource.data.value is number && request.resource.data.value >= 0 && request.resource.data.value <= 100));
+    allow delete: if member(cid) && (resource.data.createdBy == request.auth.uid || owner(cid));
+   }
+  }
+ }
+}
