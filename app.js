@@ -6,7 +6,33 @@ const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g
 const error=e=>{console.error(e);alert(e?.message||'Ocurrió un error. Revisa tu conexión y los permisos de Firebase.')};
 const validConfig=!Object.values(firebaseConfig).some(x=>String(x).includes('REEMPLAZAR'));
 let auth,db,user=null,clubId=null,clubs=[],records=[],notes=[],tab='inicio',stopClubs=null,stopRecords=null,stopNotes=null,saveModal=()=>{};
-let deferredInstall=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').classList.remove('hide')});$('install').onclick=async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').classList.add('hide')}};
+let deferredInstall=null;
+const installed=()=>window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+const android=()=>/Android/i.test(navigator.userAgent);
+const mac=()=>/Macintosh|Mac OS X/i.test(navigator.userAgent);
+const safari=()=>/Safari/i.test(navigator.userAgent)&&!/Chrome|CriOS|Edg|OPR/i.test(navigator.userAgent);
+function refreshInstall(){
+ const show=!!user&&!installed();
+ $('installBanner').classList.toggle('hide',!show);
+ $('install').classList.toggle('hide',!show);
+ if(show){$('installHelp').textContent=deferredInstall?'Pulsa Instalar para confirmar desde tu navegador.':installInstructions();}
+}
+function installInstructions(){
+ if(android())return 'Si no aparece la instalación automática: abre el menú ⋮ de Chrome y selecciona Instalar aplicación o Agregar a pantalla principal.';
+ if(mac()&&safari())return 'En Safari para Mac: menú Archivo → Agregar al Dock (macOS Sonoma 14 o posterior).';
+ if(mac())return 'En Chrome: menú ⋮ → Transmitir, guardar y compartir → Instalar página como aplicación. En Edge: menú ⋯ → Aplicaciones → Instalar este sitio como una aplicación.';
+ if(/iPhone|iPad|iPod/i.test(navigator.userAgent))return 'En Safari: botón Compartir → Agregar a pantalla de inicio → Agregar.';
+ return 'Abre el menú de tu navegador y busca Instalar aplicación o Agregar a pantalla de inicio.';
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;refreshInstall()});
+window.addEventListener('appinstalled',()=>{deferredInstall=null;refreshInstall()});
+async function requestInstall(){
+ if(deferredInstall){const evt=deferredInstall;deferredInstall=null;try{await evt.prompt();await evt.userChoice;}catch(e){console.warn(e)}refreshInstall();return;}
+ $('installHelp').textContent=installInstructions();
+ alert('Para instalar EntreLíneas:\n\n'+installInstructions());
+}
+$('install').onclick=requestInstall;
+$('installNow').onclick=requestInstall;
 if('serviceWorker' in navigator && location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(console.warn);
 function modal(title,fields,cb){$('modalTitle').textContent=title;$('fields').innerHTML=fields;saveModal=cb;$('modal').showModal()}
 function field(k,label,type='text',value='',required=true){return `<label class="label" for="f_${k}">${esc(label)}</label>${type==='textarea'?`<textarea id="f_${k}" name="${k}" ${required?'required':''}>${esc(value)}</textarea>`:type==='select'?`<select id="f_${k}" name="${k}">${value}</select>`:`<input id="f_${k}" name="${k}" type="${type}" value="${esc(value)}" ${required?'required':''}>`}`}
@@ -16,7 +42,7 @@ if(!validConfig){$('setup').classList.remove('hide')}else{
  $('signin').onclick=()=>signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value).catch(e=>$('authMsg').textContent=e.message);
  $('signup').onclick=()=>createUserWithEmailAndPassword(auth,$('email').value.trim(),$('password').value).catch(e=>$('authMsg').textContent=e.message);
  $('logout').onclick=()=>signOut(auth);
- onAuthStateChanged(auth,u=>{if(stopClubs)stopClubs();if(stopRecords)stopRecords();if(stopNotes)stopNotes();stopClubs=stopRecords=stopNotes=null;user=u;clubs=[];records=[];notes=[];clubId=null;$('auth').classList.toggle('hide',!!u);$('app').classList.toggle('hide',!u);$('logout').classList.toggle('hide',!u);$('who').textContent=u?.email||'';if(u)listenClubs()});
+ onAuthStateChanged(auth,u=>{if(stopClubs)stopClubs();if(stopRecords)stopRecords();if(stopNotes)stopNotes();stopClubs=stopRecords=stopNotes=null;user=u;clubs=[];records=[];notes=[];clubId=null;$('auth').classList.toggle('hide',!!u);$('app').classList.toggle('hide',!u);$('logout').classList.toggle('hide',!u);$('who').textContent=u?.email||'';if(u)listenClubs();refreshInstall()});
 }
 function listenClubs(){stopClubs=onSnapshot(query(collection(db,'clubs'),where('memberIds','array-contains',user.uid)),snap=>{clubs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(c=>!c.deletedAt);if(!clubs.some(c=>c.id===clubId))clubId=clubs[0]?.id||null;listenRecords();render()},error)}
 function listenRecords(){if(stopRecords)stopRecords();if(stopNotes)stopNotes();stopRecords=stopNotes=null;records=[];notes=[];if(clubId){stopRecords=onSnapshot(collection(db,'clubs',clubId,'items'),snap=>{records=snap.docs.map(d=>({id:d.id,...d.data()}));render()},error);stopNotes=onSnapshot(collection(db,'clubs',clubId,'privateNotes',user.uid,'entries'),snap=>{notes=snap.docs.map(d=>({id:d.id,...d.data()}));render()},error)}}
