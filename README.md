@@ -1,7 +1,14 @@
-Entre Páginas - instalación
-1. En Firebase Firestore > Reglas, pegar firestore.rules y publicar.
-2. En Firebase Authentication > Configuración > Dominios autorizados, agregar el dominio de GitHub Pages (usuario.github.io).
-3. Subir todos los archivos a la raíz del repositorio GitHub Pages.
-4. Abrir HTTPS, crear cuenta, crear club, compartir código; el invitado solicita acceso y el dueño lo aprueba en Integrantes.
-5. Instalar desde el menú de Chrome/Edge si el navegador ofrece Instalar aplicación.
-Nota: Reglas y aplicación aún requieren pruebas reales con dos cuentas. Las reglas no validan exhaustivamente todos los campos de libros/debates; no usar para información sensible.
+# EntreLíneas — actualización
+
+Se cambió el nombre visible y el manifiesto de instalación. El botón **Eliminar club** solo aparece al administrador.
+
+**Doble verificación:** primero aceptar un cuadro de confirmación y luego escribir exactamente el nombre del club.
+
+**Importante:** la acción es una eliminación lógica: el club desaparece de la app para todos y se bloquean operaciones posteriores, pero los documentos permanecen en Firestore. Para borrado físico completo de subcolecciones (incluidos diarios privados), es necesario un proceso administrativo de eliminación recursiva mediante un backend confiable.
+
+1. En Firebase > Firestore Database > Reglas, reemplazar por el archivo firestore.rules y publicar.
+2. En GitHub, subir y reemplazar index.html, app.js, manifest.webmanifest, sw.js y demás archivos de este paquete, manteniendo la carpeta icons.
+3. Recargar con Ctrl+F5, probar con un club de prueba y dos usuarios.
+4. Si ya instalaste la PWA, puede ser necesario cerrar y reabrirla para actualizar el nombre.
+
+No borrar el proyecto Firebase ni otros clubes.
