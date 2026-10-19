@@ -1,0 +1,7 @@
+EntreLíneas - instalación Android y Mac
+1. Reemplaza en GitHub: index.html, app.js y sw.js.
+2. Conserva firebase-config.js y firestore.rules actuales: NO es necesario volver a publicar reglas.
+3. Verifica que manifest.webmanifest e icons/icon-192.png e icons/icon-512.png estén publicados.
+4. Abre la web, inicia sesión y pulsa Instalar EntreLíneas.
+5. Android Chrome y Chrome/Edge Mac pueden mostrar instalación nativa cuando el navegador lo permite; Safari Mac usa Archivo > Agregar al Dock (macOS 14+).
+6. Si no ves los cambios, recarga la página y vuelve a abrir la app.
